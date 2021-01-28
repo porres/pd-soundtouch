@@ -17,6 +17,13 @@
 ///
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Last changed  : $Date: 2009-04-13 16:18:48 +0300 (Mon, 13 Apr 2009) $
+// File revision : $Revision: 4 $
+//
+// $Id: FIFOSamplePipe.h 69 2009-04-13 13:18:48Z oparviai $
+//
+////////////////////////////////////////////////////////////////////////////////
+//
 // License :
 //
 //  SoundTouch audio processing library
@@ -51,18 +58,6 @@ namespace soundtouch
 /// Abstract base class for FIFO (first-in-first-out) sample processing classes.
 class FIFOSamplePipe
 {
-protected:
-
-    bool verifyNumberOfChannels(int nChannels) const
-    {
-        if ((nChannels > 0) && (nChannels <= SOUNDTOUCH_MAX_CHANNELS))
-        {
-            return true;
-        }
-        ST_THROW_RT_ERROR("Error: Illegal number of channels");
-        return false;
-    }
-
 public:
     // virtual default destructor
     virtual ~FIFOSamplePipe() {}
@@ -119,12 +114,8 @@ public:
 
     /// Clears all the samples.
     virtual void clear() = 0;
-
-    /// allow trimming (downwards) amount of samples in pipeline.
-    /// Returns adjusted amount of samples
-    virtual uint adjustAmountOfSamples(uint numSamples) = 0;
-
 };
+
 
 
 /// Base-class for sound processing routines working in FIFO principle. With this base 
@@ -149,12 +140,14 @@ protected:
         output = pOutput;
     }
 
+
     /// Constructor. Doesn't define output pipe; it has to be set be 
     /// 'setOutPipe' function.
     FIFOProcessor()
     {
         output = NULL;
     }
+
 
     /// Constructor. Configures output pipe.
     FIFOProcessor(FIFOSamplePipe *pOutput   ///< Output pipe.
@@ -163,10 +156,12 @@ protected:
         output = pOutput;
     }
 
+
     /// Destructor.
     virtual ~FIFOProcessor()
     {
     }
+
 
     /// Returns a pointer to the beginning of the output samples. 
     /// This function is provided for accessing the output samples directly. 
@@ -194,6 +189,7 @@ public:
         return output->receiveSamples(outBuffer, maxSamples);
     }
 
+
     /// Adjusts book-keeping so that given number of samples are removed from beginning of the 
     /// sample buffer without copying them anywhere. 
     ///
@@ -205,23 +201,18 @@ public:
         return output->receiveSamples(maxSamples);
     }
 
+
     /// Returns number of samples currently available.
     virtual uint numSamples() const
     {
         return output->numSamples();
     }
 
+
     /// Returns nonzero if there aren't any samples available for outputting.
     virtual int isEmpty() const
     {
         return output->isEmpty();
-    }
-
-    /// allow trimming (downwards) amount of samples in pipeline.
-    /// Returns adjusted amount of samples
-    virtual uint adjustAmountOfSamples(uint numSamples)
-    {
-        return output->adjustAmountOfSamples(numSamples);
     }
 };
 

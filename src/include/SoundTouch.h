@@ -41,6 +41,13 @@
 ///
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Last changed  : $Date: 2011-07-15 22:27:10 +0300 (Fri, 15 Jul 2011) $
+// File revision : $Revision: 4 $
+//
+// $Id: SoundTouch.h 107 2011-07-15 19:27:10Z oparviai $
+//
+////////////////////////////////////////////////////////////////////////////////
+//
 // License :
 //
 //  SoundTouch audio processing library
@@ -72,10 +79,10 @@ namespace soundtouch
 {
 
 /// Soundtouch library version string
-#define SOUNDTOUCH_VERSION          "2.2"
+#define SOUNDTOUCH_VERSION          "1.6.0"
 
 /// SoundTouch library version id
-#define SOUNDTOUCH_VERSION_ID       (20200)
+#define SOUNDTOUCH_VERSION_ID       (10600)
 
 //
 // Available setting IDs for the 'setSetting' & 'get_setting' functions:
@@ -109,61 +116,30 @@ namespace soundtouch
 #define SETTING_OVERLAP_MS          5
 
 
-/// Call "getSetting" with this ID to query processing sequence size in samples. 
-/// This value gives approximate value of how many input samples you'll need to 
-/// feed into SoundTouch after initial buffering to get out a new batch of
-/// output samples. 
-///
-/// This value does not include initial buffering at beginning of a new processing 
-/// stream, use SETTING_INITIAL_LATENCY to get the initial buffering size.
+/// Call "getSetting" with this ID to query nominal average processing sequence
+/// size in samples. This value tells approcimate value how many input samples 
+/// SoundTouch needs to gather before it does DSP processing run for the sample batch.
 ///
 /// Notices: 
 /// - This is read-only parameter, i.e. setSetting ignores this parameter
-/// - This parameter value is not constant but change depending on 
+/// - Returned value is approximate average value, exact processing batch
+///   size may wary from time to time
+/// - This parameter value is not constant but may change depending on 
 ///   tempo/pitch/rate/samplerate settings.
-#define SETTING_NOMINAL_INPUT_SEQUENCE      6
+#define SETTING_NOMINAL_INPUT_SEQUENCE		6
 
 
 /// Call "getSetting" with this ID to query nominal average processing output 
 /// size in samples. This value tells approcimate value how many output samples 
 /// SoundTouch outputs once it does DSP processing run for a batch of input samples.
-///
+///	
 /// Notices: 
 /// - This is read-only parameter, i.e. setSetting ignores this parameter
-/// - This parameter value is not constant but change depending on 
+/// - Returned value is approximate average value, exact processing batch
+///   size may wary from time to time
+/// - This parameter value is not constant but may change depending on 
 ///   tempo/pitch/rate/samplerate settings.
-#define SETTING_NOMINAL_OUTPUT_SEQUENCE     7
-
-
-/// Call "getSetting" with this ID to query initial processing latency, i.e.
-/// approx. how many samples you'll need to enter to SoundTouch pipeline before 
-/// you can expect to get first batch of ready output samples out. 
-///
-/// After the first output batch, you can then expect to get approx. 
-/// SETTING_NOMINAL_OUTPUT_SEQUENCE ready samples out for every
-/// SETTING_NOMINAL_INPUT_SEQUENCE samples that you enter into SoundTouch.
-///
-/// Example:
-///     processing with parameter -tempo=5
-///     => initial latency = 5509 samples
-///        input sequence  = 4167 samples
-///        output sequence = 3969 samples
-///
-/// Accordingly, you can expect to feed in approx. 5509 samples at beginning of 
-/// the stream, and then you'll get out the first 3969 samples. After that, for 
-/// every approx. 4167 samples that you'll put in, you'll receive again approx. 
-/// 3969 samples out.
-///
-/// This also means that average latency during stream processing is 
-/// INITIAL_LATENCY-OUTPUT_SEQUENCE/2, in the above example case 5509-3969/2 
-/// = 3524 samples
-/// 
-/// Notices: 
-/// - This is read-only parameter, i.e. setSetting ignores this parameter
-/// - This parameter value is not constant but change depending on 
-///   tempo/pitch/rate/samplerate settings.
-#define SETTING_INITIAL_LATENCY             8
-
+#define SETTING_NOMINAL_OUTPUT_SEQUENCE		7
 
 class SoundTouch : public FIFOProcessor
 {
@@ -175,23 +151,16 @@ private:
     class TDStretch *pTDStretch;
 
     /// Virtual pitch parameter. Effective rate & tempo are calculated from these parameters.
-    double virtualRate;
+    float virtualRate;
 
     /// Virtual pitch parameter. Effective rate & tempo are calculated from these parameters.
-    double virtualTempo;
+    float virtualTempo;
 
     /// Virtual pitch parameter. Effective rate & tempo are calculated from these parameters.
-    double virtualPitch;
+    float virtualPitch;
 
     /// Flag: Has sample rate been set?
-    bool  bSrateSet;
-
-    /// Accumulator for how many samples in total will be expected as output vs. samples put in,
-    /// considering current processing settings.
-    double samplesExpectedOut;
-
-    /// Accumulator for how many samples in total have been read out from the processing so far
-    long   samplesOutput;
+    BOOL  bSrateSet;
 
     /// Calculates effective rate & tempo valuescfrom 'virtualRate', 'virtualTempo' and 
     /// 'virtualPitch' parameters.
@@ -202,10 +171,10 @@ protected :
     uint  channels;
 
     /// Effective 'rate' value calculated from 'virtualRate', 'virtualTempo' and 'virtualPitch'
-    double rate;
+    float rate;
 
     /// Effective 'tempo' value calculated from 'virtualRate', 'virtualTempo' and 'virtualPitch'
-    double tempo;
+    float tempo;
 
 public:
     SoundTouch();
@@ -219,56 +188,38 @@ public:
 
     /// Sets new rate control value. Normal rate = 1.0, smaller values
     /// represent slower rate, larger faster rates.
-    void setRate(double newRate);
+    void setRate(float newRate);
 
     /// Sets new tempo control value. Normal tempo = 1.0, smaller values
     /// represent slower tempo, larger faster tempo.
-    void setTempo(double newTempo);
+    void setTempo(float newTempo);
 
     /// Sets new rate control value as a difference in percents compared
     /// to the original rate (-50 .. +100 %)
-    void setRateChange(double newRate);
+    void setRateChange(float newRate);
 
     /// Sets new tempo control value as a difference in percents compared
     /// to the original tempo (-50 .. +100 %)
-    void setTempoChange(double newTempo);
+    void setTempoChange(float newTempo);
 
     /// Sets new pitch control value. Original pitch = 1.0, smaller values
     /// represent lower pitches, larger values higher pitch.
-    void setPitch(double newPitch);
+    void setPitch(float newPitch);
 
     /// Sets pitch change in octaves compared to the original pitch  
     /// (-1.00 .. +1.00)
-    void setPitchOctaves(double newPitch);
+    void setPitchOctaves(float newPitch);
 
     /// Sets pitch change in semi-tones compared to the original pitch
     /// (-12 .. +12)
     void setPitchSemiTones(int newPitch);
-    void setPitchSemiTones(double newPitch);
+    void setPitchSemiTones(float newPitch);
 
     /// Sets the number of channels, 1 = mono, 2 = stereo
     void setChannels(uint numChannels);
 
     /// Sets sample rate.
     void setSampleRate(uint srate);
-
-    /// Get ratio between input and output audio durations, useful for calculating
-    /// processed output duration: if you'll process a stream of N samples, then 
-    /// you can expect to get out N * getInputOutputSampleRatio() samples.
-    ///
-    /// This ratio will give accurate target duration ratio for a full audio track, 
-    /// given that the the whole track is processed with same processing parameters.
-    /// 
-    /// If this ratio is applied to calculate intermediate offsets inside a processing
-    /// stream, then this ratio is approximate and can deviate +- some tens of milliseconds 
-    /// from ideal offset, yet by end of the audio stream the duration ratio will become
-    /// exact.
-    ///
-    /// Example: if processing with parameters "-tempo=15 -pitch=-3", the function
-    /// will return value 0.8695652... Now, if processing an audio stream whose duration
-    /// is exactly one million audio samples, then you can expect the processed 
-    /// output duration  be 0.869565 * 1000000 = 869565 samples.
-    double getInputOutputSampleRatio();
 
     /// Flushes the last samples from the processing pipeline to the output.
     /// Clears also the internal processing buffers.
@@ -289,23 +240,6 @@ public:
                                                     ///< contains data for both channels.
             );
 
-    /// Output samples from beginning of the sample buffer. Copies requested samples to 
-    /// output buffer and removes them from the sample buffer. If there are less than 
-    /// 'numsample' samples in the buffer, returns all that available.
-    ///
-    /// \return Number of samples returned.
-    virtual uint receiveSamples(SAMPLETYPE *output, ///< Buffer where to copy output samples.
-        uint maxSamples                 ///< How many samples to receive at max.
-        );
-
-    /// Adjusts book-keeping so that given number of samples are removed from beginning of the 
-    /// sample buffer without copying them anywhere. 
-    ///
-    /// Used to reduce the number of samples in the buffer when accessing the sample buffer directly
-    /// with 'ptrBegin' function.
-    virtual uint receiveSamples(uint maxSamples   ///< Remove this many samples from the beginning of pipe.
-        );
-
     /// Clears all the samples in the object's output and internal processing
     /// buffers.
     virtual void clear();
@@ -313,8 +247,8 @@ public:
     /// Changes a setting controlling the processing system behaviour. See the
     /// 'SETTING_...' defines for available setting ID's.
     /// 
-    /// \return 'true' if the setting was successfully changed
-    bool setSetting(int settingId,   ///< Setting ID number. see SETTING_... defines.
+    /// \return 'TRUE' if the setting was succesfully changed
+    BOOL setSetting(int settingId,   ///< Setting ID number. see SETTING_... defines.
                     int value        ///< New setting value.
                     );
 
@@ -328,11 +262,6 @@ public:
     /// Returns number of samples currently unprocessed.
     virtual uint numUnprocessedSamples() const;
 
-    /// Return number of channels
-    uint numChannels() const
-    {
-        return channels;
-    }
 
     /// Other handy functions that are implemented in the ancestor classes (see
     /// classes 'FIFOProcessor' and 'FIFOSamplePipe')

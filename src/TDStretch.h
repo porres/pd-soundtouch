@@ -13,6 +13,13 @@
 ///
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Last changed  : $Date: 2011-02-13 21:13:57 +0200 (Sun, 13 Feb 2011) $
+// File revision : $Revision: 4 $
+//
+// $Id: TDStretch.h 104 2011-02-13 19:13:57Z oparviai $
+//
+////////////////////////////////////////////////////////////////////////////////
+//
 // License :
 //
 //  SoundTouch audio processing library
@@ -105,57 +112,55 @@ class TDStretch : public FIFOProcessor
 protected:
     int channels;
     int sampleReq;
+    float tempo;
 
+    SAMPLETYPE *pMidBuffer;
+    SAMPLETYPE *pRefMidBuffer;
+    SAMPLETYPE *pRefMidBufferUnaligned;
     int overlapLength;
     int seekLength;
     int seekWindowLength;
-    int overlapDividerBitsNorm;
-    int overlapDividerBitsPure;
+    int overlapDividerBits;
     int slopingDivider;
+    float nominalSkip;
+    float skipFract;
+    FIFOSampleBuffer outputBuffer;
+    FIFOSampleBuffer inputBuffer;
+    BOOL bQuickSeek;
+//    int outDebt;
+//    BOOL bMidBufferDirty;
+
     int sampleRate;
     int sequenceMs;
     int seekWindowMs;
     int overlapMs;
-
-    unsigned long maxnorm;
-    float maxnormf;
-
-    double tempo;
-    double nominalSkip;
-    double skipFract;
-
-    bool bQuickSeek;
-    bool bAutoSeqSetting;
-    bool bAutoSeekSetting;
-    bool isBeginning;
-
-    SAMPLETYPE *pMidBuffer;
-    SAMPLETYPE *pMidBufferUnaligned;
-
-    FIFOSampleBuffer outputBuffer;
-    FIFOSampleBuffer inputBuffer;
+    BOOL bAutoSeqSetting;
+    BOOL bAutoSeekSetting;
 
     void acceptNewOverlapLength(int newOverlapLength);
 
     virtual void clearCrossCorrState();
     void calculateOverlapLength(int overlapMs);
 
-    virtual double calcCrossCorr(const SAMPLETYPE *mixingPos, const SAMPLETYPE *compare, double &norm);
-    virtual double calcCrossCorrAccumulate(const SAMPLETYPE *mixingPos, const SAMPLETYPE *compare, double &norm);
+    virtual LONG_SAMPLETYPE calcCrossCorrStereo(const SAMPLETYPE *mixingPos, const SAMPLETYPE *compare) const;
+    virtual LONG_SAMPLETYPE calcCrossCorrMono(const SAMPLETYPE *mixingPos, const SAMPLETYPE *compare) const;
 
-    virtual int seekBestOverlapPositionFull(const SAMPLETYPE *refPos);
-    virtual int seekBestOverlapPositionQuick(const SAMPLETYPE *refPos);
-    virtual int seekBestOverlapPosition(const SAMPLETYPE *refPos);
+    virtual int seekBestOverlapPositionStereo(const SAMPLETYPE *refPos);
+    virtual int seekBestOverlapPositionStereoQuick(const SAMPLETYPE *refPos);
+    virtual int seekBestOverlapPositionMono(const SAMPLETYPE *refPos);
+    virtual int seekBestOverlapPositionMonoQuick(const SAMPLETYPE *refPos);
+    int seekBestOverlapPosition(const SAMPLETYPE *refPos);
 
     virtual void overlapStereo(SAMPLETYPE *output, const SAMPLETYPE *input) const;
     virtual void overlapMono(SAMPLETYPE *output, const SAMPLETYPE *input) const;
-    virtual void overlapMulti(SAMPLETYPE *output, const SAMPLETYPE *input) const;
 
     void clearMidBuffer();
     void overlap(SAMPLETYPE *output, const SAMPLETYPE *input, uint ovlPos) const;
 
+    void precalcCorrReferenceMono();
+    void precalcCorrReferenceStereo();
+
     void calcSeqParameters();
-    void adaptNormalizer();
 
     /// Changes the tempo of the given sound samples.
     /// Returns amount of samples returned in the "output" buffer.
@@ -184,7 +189,7 @@ public:
 
     /// Sets new target tempo. Normal tempo = 'SCALE', smaller values represent slower 
     /// tempo, larger faster tempo.
-    void setTempo(double newTempo);
+    void setTempo(float newTempo);
 
     /// Returns nonzero if there aren't any samples available for outputting.
     virtual void clear();
@@ -197,10 +202,10 @@ public:
 
     /// Enables/disables the quick position seeking algorithm. Zero to disable, 
     /// nonzero to enable
-    void enableQuickSeek(bool enable);
+    void enableQuickSeek(BOOL enable);
 
     /// Returns nonzero if the quick seeking algorithm is enabled.
-    bool isQuickSeekEnabled() const;
+    BOOL isQuickSeekEnabled() const;
 
     /// Sets routine control parameters. These control are certain time constants
     /// defining how the sound is stretched to the desired duration.
@@ -229,24 +234,19 @@ public:
                                                     ///< contains both channels if stereo
             );
 
-    /// return nominal input sample requirement for triggering a processing batch
-    int getInputSampleReq() const
-    {
-        return (int)(nominalSkip + 0.5);
-    }
-
-    /// return nominal output sample amount when running a processing batch
-    int getOutputBatchSize() const
-    {
-        return seekWindowLength - overlapLength;
-    }
-
-	/// return approximate initial input-output latency
-	int getLatency() const
+	/// return nominal input sample requirement for triggering a processing batch
+	int getInputSampleReq() const
 	{
-		return sampleReq;
+		return (int)(nominalSkip + 0.5);
+	}
+
+	/// return nominal output sample amount when running a processing batch
+	int getOutputBatchSize() const
+	{
+		return seekWindowLength - overlapLength;
 	}
 };
+
 
 
 // Implementation-specific class declarations:
@@ -256,8 +256,7 @@ public:
     class TDStretchMMX : public TDStretch
     {
     protected:
-        double calcCrossCorr(const short *mixingPos, const short *compare, double &norm);
-        double calcCrossCorrAccumulate(const short *mixingPos, const short *compare, double &norm);
+        long calcCrossCorrStereo(const short *mixingPos, const short *compare) const;
         virtual void overlapStereo(short *output, const short *input) const;
         virtual void clearCrossCorrState();
     };
@@ -269,8 +268,7 @@ public:
     class TDStretchSSE : public TDStretch
     {
     protected:
-        double calcCrossCorr(const float *mixingPos, const float *compare, double &norm);
-        double calcCrossCorrAccumulate(const float *mixingPos, const float *compare, double &norm);
+        double calcCrossCorrStereo(const float *mixingPos, const float *compare) const;
     };
 
 #endif /// SOUNDTOUCH_ALLOW_SSE

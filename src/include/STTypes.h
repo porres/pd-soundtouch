@@ -8,6 +8,13 @@
 ///
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Last changed  : $Date: 2011-07-16 11:45:37 +0300 (Sat, 16 Jul 2011) $
+// File revision : $Revision: 3 $
+//
+// $Id: STTypes.h 119 2011-07-16 08:45:37Z oparviai $
+//
+////////////////////////////////////////////////////////////////////////////////
+//
 // License :
 //
 //  SoundTouch audio processing library
@@ -35,48 +42,28 @@
 typedef unsigned int    uint;
 typedef unsigned long   ulong;
 
-// Patch for MinGW: on Win64 long is 32-bit
-#ifdef _WIN64
-    typedef unsigned long long ulongptr;
-#else
-    typedef ulong ulongptr;
-#endif
-
-
-// Helper macro for aligning pointer up to next 16-byte boundary
-#define SOUNDTOUCH_ALIGN_POINTER_16(x)      ( ( (ulongptr)(x) + 15 ) & ~(ulongptr)15 )
-
-
-#if (defined(__GNUC__) && !defined(ANDROID))
-    // In GCC, include soundtouch_config.h made by config scritps.
-    // Skip this in Android compilation that uses GCC but without configure scripts.
+#ifdef __GNUC__
+    // In GCC, include soundtouch_config.h made by config scritps
     #include "soundtouch_config.h"
 #endif
+
+#ifndef _WINDEF_
+    // if these aren't defined already by Windows headers, define now
+
+    typedef int BOOL;
+
+    #define FALSE   0
+    #define TRUE    1
+
+#endif  // _WINDEF_
 
 
 namespace soundtouch
 {
-    /// Max allowed number of channels
-    #define SOUNDTOUCH_MAX_CHANNELS     16
-
     /// Activate these undef's to overrule the possible sampletype 
     /// setting inherited from some other header file:
     //#undef SOUNDTOUCH_INTEGER_SAMPLES
     //#undef SOUNDTOUCH_FLOAT_SAMPLES
-
-    /// If following flag is defined, always uses multichannel processing 
-    /// routines also for mono and stero sound. This is for routine testing 
-    /// purposes; output should be same with either routines, yet disabling 
-    /// the dedicated mono/stereo processing routines will result in slower 
-    /// runtime performance so recommendation is to keep this off.
-    // #define USE_MULTICH_ALWAYS
-
-    #if (defined(__SOFTFP__) && defined(ANDROID))
-        // For Android compilation: Force use of Integer samples in case that
-        // compilation uses soft-floating point emulation - soft-fp is way too slow
-        #undef  SOUNDTOUCH_FLOAT_SAMPLES
-        #define SOUNDTOUCH_INTEGER_SAMPLES      1
-    #endif
 
     #if !(SOUNDTOUCH_INTEGER_SAMPLES || SOUNDTOUCH_FLOAT_SAMPLES)
        
@@ -99,7 +86,7 @@ namespace soundtouch
      
     #endif
 
-    #if (_M_IX86 || __i386__ || __x86_64__ || _M_X64)
+    #if (WIN32 || __i386__ || __x86_64__)
         /// Define this to allow X86-specific assembler/intrinsic optimizations. 
         /// Notice that library contains also usual C++ versions of each of these
         /// these routines, so if you're having difficulties getting the optimized 
@@ -107,17 +94,6 @@ namespace soundtouch
         /// to make the library compile.
 
         #define SOUNDTOUCH_ALLOW_X86_OPTIMIZATIONS     1
-
-        /// In GNU environment, allow the user to override this setting by
-        /// giving the following switch to the configure script:
-        /// ./configure --disable-x86-optimizations
-        /// ./configure --enable-x86-optimizations=no
-        #ifdef SOUNDTOUCH_DISABLE_X86_OPTIMIZATIONS
-            #undef SOUNDTOUCH_ALLOW_X86_OPTIMIZATIONS
-        #endif
-    #else
-        /// Always disable optimizations when not using a x86 systems.
-        #undef SOUNDTOUCH_ALLOW_X86_OPTIMIZATIONS
 
     #endif
 
@@ -139,19 +115,16 @@ namespace soundtouch
         #endif // SOUNDTOUCH_FLOAT_SAMPLES
 
         #ifdef SOUNDTOUCH_ALLOW_X86_OPTIMIZATIONS
-            // Allow MMX optimizations (not available in X64 mode)
-            #if (!_M_X64)
-                #define SOUNDTOUCH_ALLOW_MMX   1
-            #endif
+            // Allow MMX optimizations
+            #define SOUNDTOUCH_ALLOW_MMX   1
         #endif
 
     #else
 
         // floating point samples
         typedef float  SAMPLETYPE;
-        // data type for sample accumulation: Use float also here to enable
-        // efficient autovectorization
-        typedef float LONG_SAMPLETYPE;
+        // data type for sample accumulation: Use double to utilize full precision.
+        typedef double LONG_SAMPLETYPE;
 
         #ifdef SOUNDTOUCH_ALLOW_X86_OPTIMIZATIONS
             // Allow SSE optimizations
@@ -159,27 +132,8 @@ namespace soundtouch
         #endif
 
     #endif  // SOUNDTOUCH_INTEGER_SAMPLES
-
-    #if ((SOUNDTOUCH_ALLOW_SSE) || (__SSE__) || (SOUNDTOUCH_USE_NEON))
-        #if SOUNDTOUCH_ALLOW_NONEXACT_SIMD_OPTIMIZATION
-            #define ST_SIMD_AVOID_UNALIGNED
-        #endif
-    #endif
-
 };
 
-// define ST_NO_EXCEPTION_HANDLING switch to disable throwing std exceptions:
-// #define ST_NO_EXCEPTION_HANDLING    1
-#ifdef ST_NO_EXCEPTION_HANDLING
-    // Exceptions disabled. Throw asserts instead if enabled.
-    #include <assert.h>
-    #define ST_THROW_RT_ERROR(x)    {assert((const char *)x);}
-#else
-    // use c++ standard exceptions
-    #include <stdexcept>
-    #include <string>
-    #define ST_THROW_RT_ERROR(x)    {throw std::runtime_error(x);}
-#endif
 
 // When this #define is active, eliminates a clicking sound when the "rate" or "pitch" 
 // parameter setting crosses from value <1 to >=1 or vice versa during processing. 
