@@ -20,6 +20,13 @@
 ///
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Last changed  : $Date: 2011-02-13 21:13:57 +0200 (Sun, 13 Feb 2011) $
+// File revision : $Revision: 4 $
+//
+// $Id: mmx_optimized.cpp 104 2011-02-13 19:13:57Z oparviai $
+//
+////////////////////////////////////////////////////////////////////////////////
+//
 // License :
 //
 //  SoundTouch audio processing library
@@ -46,6 +53,10 @@
 #ifdef SOUNDTOUCH_ALLOW_MMX
 // MMX routines available only with integer sample type
 
+#if !(WIN32 || __i386__ || __x86_64__)
+#error "wrong platform - this source code file is exclusively for x86 platforms"
+#endif
+
 using namespace soundtouch;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -61,7 +72,7 @@ using namespace soundtouch;
 
 
 // Calculates cross correlation of two buffers
-double TDStretchMMX::calcCrossCorr(const short *pV1, const short *pV2, double &dnorm)
+long TDStretchMMX::calcCrossCorrStereo(const short *pV1, const short *pV2) const
 {
     const __m64 *pVec1, *pVec2;
     __m64 shifter;
@@ -72,12 +83,12 @@ double TDStretchMMX::calcCrossCorr(const short *pV1, const short *pV2, double &d
     pVec1 = (__m64*)pV1;
     pVec2 = (__m64*)pV2;
 
-    shifter = _m_from_int(overlapDividerBitsNorm);
+    shifter = _m_from_int(overlapDividerBits);
     normaccu = accu = _mm_setzero_si64();
 
-    // Process 4 parallel sets of 2 * stereo samples or 4 * mono samples 
-    // during each round for improved CPU-level parallellization.
-    for (i = 0; i < channels * overlapLength / 16; i ++)
+    // Process 4 parallel sets of 2 * stereo samples each during each 
+    // round to improve CPU-level parallellization.
+    for (i = 0; i < overlapLength / 8; i ++)
     {
         __m64 temp, temp2;
 
@@ -86,19 +97,19 @@ double TDStretchMMX::calcCrossCorr(const short *pV1, const short *pV2, double &d
         // _mm_add_pi32 : 2*32bit add
         // _m_psrad     : 32bit right-shift
 
-        temp = _mm_add_pi32(_mm_sra_pi32(_mm_madd_pi16(pVec1[0], pVec2[0]), shifter),
-                            _mm_sra_pi32(_mm_madd_pi16(pVec1[1], pVec2[1]), shifter));
-        temp2 = _mm_add_pi32(_mm_sra_pi32(_mm_madd_pi16(pVec1[0], pVec1[0]), shifter),
-                            _mm_sra_pi32(_mm_madd_pi16(pVec1[1], pVec1[1]), shifter));
-        accu = _mm_add_pi32(accu, temp);
-        normaccu = _mm_add_pi32(normaccu, temp2);
+        temp = _mm_add_pi32(_mm_madd_pi16(pVec1[0], pVec2[0]),
+                            _mm_madd_pi16(pVec1[1], pVec2[1]));
+        temp2 = _mm_add_pi32(_mm_madd_pi16(pVec1[0], pVec1[0]),
+                             _mm_madd_pi16(pVec1[1], pVec1[1]));
+        accu = _mm_add_pi32(accu, _mm_sra_pi32(temp, shifter));
+        normaccu = _mm_add_pi32(normaccu, _mm_sra_pi32(temp2, shifter));
 
-        temp = _mm_add_pi32(_mm_sra_pi32(_mm_madd_pi16(pVec1[2], pVec2[2]), shifter),
-                            _mm_sra_pi32(_mm_madd_pi16(pVec1[3], pVec2[3]), shifter));
-        temp2 = _mm_add_pi32(_mm_sra_pi32(_mm_madd_pi16(pVec1[2], pVec1[2]), shifter),
-                            _mm_sra_pi32(_mm_madd_pi16(pVec1[3], pVec1[3]), shifter));
-        accu = _mm_add_pi32(accu, temp);
-        normaccu = _mm_add_pi32(normaccu, temp2);
+        temp = _mm_add_pi32(_mm_madd_pi16(pVec1[2], pVec2[2]),
+                            _mm_madd_pi16(pVec1[3], pVec2[3]));
+        temp2 = _mm_add_pi32(_mm_madd_pi16(pVec1[2], pVec1[2]),
+                             _mm_madd_pi16(pVec1[3], pVec1[3]));
+        accu = _mm_add_pi32(accu, _mm_sra_pi32(temp, shifter));
+        normaccu = _mm_add_pi32(normaccu, _mm_sra_pi32(temp2, shifter));
 
         pVec1 += 4;
         pVec2 += 4;
@@ -116,97 +127,14 @@ double TDStretchMMX::calcCrossCorr(const short *pV1, const short *pV2, double &d
     // Clear MMS state
     _m_empty();
 
-    if (norm > (long)maxnorm)
-    {
-        // modify 'maxnorm' inside critical section to avoid multi-access conflict if in OpenMP mode
-        #pragma omp critical
-        if (norm > (long)maxnorm)
-        {
-            maxnorm = norm;
-        }
-    }
-
     // Normalize result by dividing by sqrt(norm) - this step is easiest 
     // done using floating point operation
-    dnorm = (double)norm;
-
-    return (double)corr / sqrt(dnorm < 1e-9 ? 1.0 : dnorm);
+    if (norm == 0) norm = 1;    // to avoid div by zero
+    return (long)((double)corr * USHRT_MAX / sqrt((double)norm));
     // Note: Warning about the missing EMMS instruction is harmless
     // as it'll be called elsewhere.
 }
 
-
-/// Update cross-correlation by accumulating "norm" coefficient by previously calculated value
-double TDStretchMMX::calcCrossCorrAccumulate(const short *pV1, const short *pV2, double &dnorm)
-{
-    const __m64 *pVec1, *pVec2;
-    __m64 shifter;
-    __m64 accu;
-    long corr, lnorm;
-    int i;
-   
-    // cancel first normalizer tap from previous round
-    lnorm = 0;
-    for (i = 1; i <= channels; i ++)
-    {
-        lnorm -= (pV1[-i] * pV1[-i]) >> overlapDividerBitsNorm;
-    }
-
-    pVec1 = (__m64*)pV1;
-    pVec2 = (__m64*)pV2;
-
-    shifter = _m_from_int(overlapDividerBitsNorm);
-    accu = _mm_setzero_si64();
-
-    // Process 4 parallel sets of 2 * stereo samples or 4 * mono samples 
-    // during each round for improved CPU-level parallellization.
-    for (i = 0; i < channels * overlapLength / 16; i ++)
-    {
-        __m64 temp;
-
-        // dictionary of instructions:
-        // _m_pmaddwd   : 4*16bit multiply-add, resulting two 32bits = [a0*b0+a1*b1 ; a2*b2+a3*b3]
-        // _mm_add_pi32 : 2*32bit add
-        // _m_psrad     : 32bit right-shift
-
-        temp = _mm_add_pi32(_mm_sra_pi32(_mm_madd_pi16(pVec1[0], pVec2[0]), shifter),
-                            _mm_sra_pi32(_mm_madd_pi16(pVec1[1], pVec2[1]), shifter));
-        accu = _mm_add_pi32(accu, temp);
-
-        temp = _mm_add_pi32(_mm_sra_pi32(_mm_madd_pi16(pVec1[2], pVec2[2]), shifter),
-                            _mm_sra_pi32(_mm_madd_pi16(pVec1[3], pVec2[3]), shifter));
-        accu = _mm_add_pi32(accu, temp);
-
-        pVec1 += 4;
-        pVec2 += 4;
-    }
-
-    // copy hi-dword of mm0 to lo-dword of mm1, then sum mmo+mm1
-    // and finally store the result into the variable "corr"
-
-    accu = _mm_add_pi32(accu, _mm_srli_si64(accu, 32));
-    corr = _m_to_int(accu);
-
-    // Clear MMS state
-    _m_empty();
-
-    // update normalizer with last samples of this round
-    pV1 = (short *)pVec1;
-    for (int j = 1; j <= channels; j ++)
-    {
-        lnorm += (pV1[-j] * pV1[-j]) >> overlapDividerBitsNorm;
-    }
-    dnorm += (double)lnorm;
-
-    if (lnorm > (long)maxnorm)
-    {
-        maxnorm = lnorm;
-    }
-
-    // Normalize result by dividing by sqrt(norm) - this step is easiest 
-    // done using floating point operation
-    return (double)corr / sqrt((dnorm < 1e-9) ? 1.0 : dnorm);
-}
 
 
 void TDStretchMMX::clearCrossCorrState()
@@ -215,6 +143,7 @@ void TDStretchMMX::clearCrossCorrState()
     _m_empty();
     //_asm EMMS;
 }
+
 
 
 // MMX-optimized version of the function overlapStereo
@@ -240,7 +169,7 @@ void TDStretchMMX::overlapStereo(short *output, const short *input) const
 
     // Overlaplength-division by shifter. "+1" is to account for "-1" deduced in
     // overlapDividerBits calculation earlier.
-    shifter = _m_from_int(overlapDividerBitsPure + 1);
+    shifter = _m_from_int(overlapDividerBits + 1);
 
     for (i = 0; i < overlapLength / 4; i ++)
     {
@@ -294,7 +223,6 @@ void TDStretchMMX::overlapStereo(short *output, const short *input) const
 
 FIRFilterMMX::FIRFilterMMX() : FIRFilter()
 {
-    filterCoeffsAlign = NULL;
     filterCoeffsUnalign = NULL;
 }
 
@@ -314,7 +242,7 @@ void FIRFilterMMX::setCoefficients(const short *coeffs, uint newLength, uint uRe
     // Ensure that filter coeffs array is aligned to 16-byte boundary
     delete[] filterCoeffsUnalign;
     filterCoeffsUnalign = new short[2 * newLength + 8];
-    filterCoeffsAlign = (short *)SOUNDTOUCH_ALIGN_POINTER_16(filterCoeffsUnalign);
+    filterCoeffsAlign = (short *)(((ulong)filterCoeffsUnalign + 15) & -16);
 
     // rearrange the filter coefficients for mmx routines 
     for (i = 0;i < length; i += 4) 
@@ -330,6 +258,7 @@ void FIRFilterMMX::setCoefficients(const short *coeffs, uint newLength, uint uRe
         filterCoeffsAlign[2 * i + 7] = coeffs[i + 3];
     }
 }
+
 
 
 // mmx-optimized version of the filter routine for stereo sound
@@ -387,10 +316,5 @@ uint FIRFilterMMX::evaluateFilterStereo(short *dest, const short *src, uint numS
 
     return (numSamples & 0xfffffffe) - length;
 }
-
-#else
-
-// workaround to not complain about empty module
-bool _dontcomplain_mmx_empty;
 
 #endif  // SOUNDTOUCH_ALLOW_MMX
