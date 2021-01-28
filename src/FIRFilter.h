@@ -11,13 +11,6 @@
 ///
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Last changed  : $Date: 2011-02-13 21:13:57 +0200 (Sun, 13 Feb 2011) $
-// File revision : $Revision: 4 $
-//
-// $Id: FIRFilter.h 104 2011-02-13 19:13:57Z oparviai $
-//
-////////////////////////////////////////////////////////////////////////////////
-//
 // License :
 //
 //  SoundTouch audio processing library
@@ -64,6 +57,7 @@ protected:
 
     // Memory for filter coefficients
     SAMPLETYPE *filterCoeffs;
+    SAMPLETYPE *filterCoeffsStereo;
 
     virtual uint evaluateFilterStereo(SAMPLETYPE *dest, 
                                       const SAMPLETYPE *src, 
@@ -71,6 +65,7 @@ protected:
     virtual uint evaluateFilterMono(SAMPLETYPE *dest, 
                                     const SAMPLETYPE *src, 
                                     uint numSamples) const;
+    virtual uint evaluateFilterMulti(SAMPLETYPE *dest, const SAMPLETYPE *src, uint numSamples, uint numChannels);
 
 public:
     FIRFilter();
@@ -90,7 +85,7 @@ public:
     uint evaluate(SAMPLETYPE *dest, 
                   const SAMPLETYPE *src, 
                   uint numSamples, 
-                  uint numChannels) const;
+                  uint numChannels);
 
     uint getLength() const;
 
