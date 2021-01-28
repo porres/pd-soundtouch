@@ -23,13 +23,6 @@
 ///
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Last changed  : $Date: 2011-07-16 15:27:28 +0300 (Sat, 16 Jul 2011) $
-// File revision : $Revision: 4 $
-//
-// $Id: sse_optimized.cpp 122 2011-07-16 12:27:28Z oparviai $
-//
-////////////////////////////////////////////////////////////////////////////////
-//
 // License :
 //
 //  SoundTouch audio processing library
@@ -71,7 +64,7 @@ using namespace soundtouch;
 #include <math.h>
 
 // Calculates cross correlation of two buffers
-double TDStretchSSE::calcCrossCorrStereo(const float *pV1, const float *pV2) const
+double TDStretchSSE::calcCrossCorr(const float *pV1, const float *pV2, double &anorm)
 {
     int i;
     const float *pVec1;
@@ -87,13 +80,13 @@ double TDStretchSSE::calcCrossCorrStereo(const float *pV1, const float *pV2) con
     // Compile-time define SOUNDTOUCH_ALLOW_NONEXACT_SIMD_OPTIMIZATION is provided
     // for choosing if this little cheating is allowed.
 
-#ifdef SOUNDTOUCH_ALLOW_NONEXACT_SIMD_OPTIMIZATION
+#ifdef ST_SIMD_AVOID_UNALIGNED
     // Little cheating allowed, return valid correlation only for 
     // aligned locations, meaning every second round for stereo sound.
 
     #define _MM_LOAD    _mm_load_ps
 
-    if (((ulong)pV1) & 15) return -1e50;    // skip unaligned locations
+    if (((ulongptr)pV1) & 15) return -1e50;    // skip unaligned locations
 
 #else
     // No cheating allowed, use unaligned load & take the resulting
@@ -110,8 +103,9 @@ double TDStretchSSE::calcCrossCorrStereo(const float *pV1, const float *pV2) con
     pVec2 = (const __m128*)pV2;
     vSum = vNorm = _mm_setzero_ps();
 
-    // Unroll the loop by factor of 4 * 4 operations
-    for (i = 0; i < overlapLength / 8; i ++) 
+    // Unroll the loop by factor of 4 * 4 operations. Use same routine for
+    // stereo & mono, for mono it just means twice the amount of unrolling.
+    for (i = 0; i < channels * overlapLength / 16; i ++) 
     {
         __m128 vTemp;
         // vSum += pV1[0..3] * pV2[0..3]
@@ -140,11 +134,11 @@ double TDStretchSSE::calcCrossCorrStereo(const float *pV1, const float *pV2) con
 
     // return value = vSum[0] + vSum[1] + vSum[2] + vSum[3]
     float *pvNorm = (float*)&vNorm;
-    double norm = sqrt(pvNorm[0] + pvNorm[1] + pvNorm[2] + pvNorm[3]);
-    if (norm < 1e-9) norm = 1.0;    // to avoid div by zero
+    float norm = (pvNorm[0] + pvNorm[1] + pvNorm[2] + pvNorm[3]);
+    anorm = norm;
 
     float *pvSum = (float*)&vSum;
-    return (double)(pvSum[0] + pvSum[1] + pvSum[2] + pvSum[3]) / norm;
+    return (double)(pvSum[0] + pvSum[1] + pvSum[2] + pvSum[3]) / sqrt(norm < 1e-9 ? 1.0 : norm);
 
     /* This is approximately corresponding routine in C-language yet without normalization:
     double corr, norm;
@@ -152,7 +146,7 @@ double TDStretchSSE::calcCrossCorrStereo(const float *pV1, const float *pV2) con
 
     // Calculates the cross-correlation value between 'pV1' and 'pV2' vectors
     corr = norm = 0.0;
-    for (i = 0; i < overlapLength / 8; i ++) 
+    for (i = 0; i < channels * overlapLength / 16; i ++) 
     {
         corr += pV1[0] * pV2[0] +
                 pV1[1] * pV2[1] +
@@ -171,81 +165,23 @@ double TDStretchSSE::calcCrossCorrStereo(const float *pV1, const float *pV2) con
                 pV1[14] * pV2[14] +
                 pV1[15] * pV2[15];
 
-	for (j = 0; j < 15; j ++) norm += pV1[j] * pV1[j];
+    for (j = 0; j < 15; j ++) norm += pV1[j] * pV1[j];
 
         pV1 += 16;
         pV2 += 16;
     }
     return corr / sqrt(norm);
     */
+}
 
-    /* This is a bit outdated, corresponding routine in assembler. This may be teeny-weeny bit
-       faster than intrinsic version, but more difficult to maintain & get compiled on multiple
-       platforms.
 
-    uint overlapLengthLocal = overlapLength;
-    float corr;
 
-    _asm 
-    {
-        // Very important note: data in 'pV2' _must_ be aligned to 
-        // 16-byte boundary!
-
-        // give prefetch hints to CPU of what data are to be needed soonish
-        // give more aggressive hints on pV1 as that changes while pV2 stays
-        // same between runs
-        prefetcht0 [pV1]
-        prefetcht0 [pV2]
-        prefetcht0 [pV1 + 32]
-
-        mov     eax, dword ptr pV1
-        mov     ebx, dword ptr pV2
-
-        xorps   xmm0, xmm0
-
-        mov     ecx, overlapLengthLocal
-        shr     ecx, 3  // div by eight
-
-    loop1:
-        prefetcht0 [eax + 64]     // give a prefetch hint to CPU what data are to be needed soonish
-        prefetcht0 [ebx + 32]     // give a prefetch hint to CPU what data are to be needed soonish
-        movups  xmm1, [eax]
-        mulps   xmm1, [ebx]
-        addps   xmm0, xmm1
-
-        movups  xmm2, [eax + 16]
-        mulps   xmm2, [ebx + 16]
-        addps   xmm0, xmm2
-
-        prefetcht0 [eax + 96]     // give a prefetch hint to CPU what data are to be needed soonish
-        prefetcht0 [ebx + 64]     // give a prefetch hint to CPU what data are to be needed soonish
-
-        movups  xmm3, [eax + 32]
-        mulps   xmm3, [ebx + 32]
-        addps   xmm0, xmm3
-
-        movups  xmm4, [eax + 48]
-        mulps   xmm4, [ebx + 48]
-        addps   xmm0, xmm4
-
-        add     eax, 64
-        add     ebx, 64
-
-        dec     ecx
-        jnz     loop1
-
-        // add the four floats of xmm0 together and return the result. 
-
-        movhlps xmm1, xmm0          // move 3 & 4 of xmm0 to 1 & 2 of xmm1
-        addps   xmm1, xmm0
-        movaps  xmm2, xmm1
-        shufps  xmm2, xmm2, 0x01    // move 2 of xmm2 as 1 of xmm2
-        addss   xmm2, xmm1
-        movss   corr, xmm2
-    }
-
-    return (double)corr;
-    */
+double TDStretchSSE::calcCrossCorrAccumulate(const float *pV1, const float *pV2, double &norm)
+{
+    // call usual calcCrossCorr function because SSE does not show big benefit of 
+    // accumulating "norm" value, and also the "norm" rolling algorithm would get 
+    // complicated due to SSE-specific alignment-vs-nonexact correlation rules.
+    return calcCrossCorr(pV1, pV2, norm);
 }
 
 
@@ -285,7 +221,7 @@ void FIRFilterSSE::setCoefficients(const float *coeffs, uint newLength, uint uRe
     // Ensure that filter coeffs array is aligned to 16-byte boundary
     delete[] filterCoeffsUnalign;
     filterCoeffsUnalign = new float[2 * newLength + 4];
-    filterCoeffsAlign = (float *)(((unsigned long)filterCoeffsUnalign + 15) & (ulong)-16);
+    filterCoeffsAlign = (float *)SOUNDTOUCH_ALIGN_POINTER_16(filterCoeffsUnalign);
 
     fDivider = (float)resultDivider;
 
@@ -313,17 +249,20 @@ uint FIRFilterSSE::evaluateFilterStereo(float *dest, const float *source, uint n
     assert(dest != NULL);
     assert((length % 8) == 0);
     assert(filterCoeffsAlign != NULL);
-    assert(((ulong)filterCoeffsAlign) % 16 == 0);
+    assert(((ulongptr)filterCoeffsAlign) % 16 == 0);
 
     // filter is evaluated for two stereo samples with each iteration, thus use of 'j += 2'
+    #pragma omp parallel for
     for (j = 0; j < count; j += 2)
     {
         const float *pSrc;
+        float *pDest;
         const __m128 *pFil;
         __m128 sum1, sum2;
         uint i;
 
-        pSrc = (const float*)source;              // source audio data
+        pSrc = (const float*)source + j * 2;      // source audio data
+        pDest = dest + j * 2;                     // destination audio data
         pFil = (const __m128*)filterCoeffsAlign;  // filter coefficients. NOTE: Assumes coefficients 
                                                   // are aligned to 16-byte boundary
         sum1 = sum2 = _mm_setzero_ps();
@@ -356,12 +295,10 @@ uint FIRFilterSSE::evaluateFilterStereo(float *dest, const float *source, uint n
         // to sum the two hi- and lo-floats of these registers together.
 
         // post-shuffle & add the filtered values and store to dest.
-        _mm_storeu_ps(dest, _mm_add_ps(
+        _mm_storeu_ps(pDest, _mm_add_ps(
                     _mm_shuffle_ps(sum1, sum2, _MM_SHUFFLE(1,0,3,2)),   // s2_1 s2_0 s1_3 s1_2
                     _mm_shuffle_ps(sum1, sum2, _MM_SHUFFLE(3,2,1,0))    // s2_3 s2_2 s1_1 s1_0
                     ));
-        source += 4;
-        dest += 4;
     }
 
     // Ideas for further improvement:
