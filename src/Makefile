@@ -5,7 +5,7 @@ CSYM=soundtouch_tilde
 PDPATH = "c:/Program Files/pd/bin"
 
 # set current target suffix: 
-current: pd_linux
+current: pd_darwin
 
 # ----------------------- LINUX i386 -----------------------
 

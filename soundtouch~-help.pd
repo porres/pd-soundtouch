@@ -1,14 +1,14 @@
-#N canvas 230 28 455 610 10;
-#X obj 41 285 dac~;
-#X obj 59 232 hsl 200 15 0 1 0 0 empty empty sound_level 20 8 0 10
+#N canvas 820 74 488 665 10;
+#X obj 68 330 dac~;
+#X obj 86 277 hsl 200 15 0 1 0 0 empty empty sound_level 20 8 0 10
 -262144 -260097 -1 0 0;
-#X obj 41 258 *~;
-#X floatatom 71 258 5 0 0 0 - - -;
-#X obj 125 173 hsl 200 15 0.25 2 0 1 empty empty pitch-factor 20 8
+#X obj 68 303 *~;
+#X floatatom 98 303 5 0 0 0 - - -;
+#X obj 152 218 hsl 200 15 0.25 2 0 1 empty empty pitch-factor 20 8
 0 10 -262144 -260097 -1 11500 0;
-#X floatatom 136 201 5 0 0 0 - - -;
-#X obj 41 201 soundtouch~ 40;
-#X obj 20 146 adc~;
+#X floatatom 163 246 5 0 0 0 - - -;
+#X obj 68 246 soundtouch~ 40;
+#X obj 47 191 adc~;
 #N canvas 276 128 408 555 timestretching 0;
 #X obj 24 105 openpanel;
 #X obj 24 155 soundfiler;
@@ -148,7 +148,7 @@ are user-definable in milliseconds:;
 #X connect 33 0 12 1;
 #X connect 34 0 14 0;
 #X connect 35 0 34 1;
-#X restore 142 562 pd timestretching;
+#X restore 169 607 pd timestretching;
 #N canvas 0 22 603 635 settings 0;
 #X obj 381 289 hsl 200 15 10 100 0 0 empty sequence sequence 20 8 0
 10 -262144 -260097 -1 0 0;
@@ -204,23 +204,26 @@ are user-definable in milliseconds:;
 #X connect 12 0 14 0;
 #X connect 12 0 13 0;
 #X connect 14 0 7 0;
-#X restore 47 172 pd settings;
-#X text 54 147 input from soundcard;
-#X msg 381 236 \; pd dsp 1;
-#X msg 381 275 \; pd dsp 0;
-#X text 20 -14 [soundtouch~] is a realtime pitch shifter \, based on
+#X restore 74 217 pd settings;
+#X text 81 192 input from soundcard;
+#X msg 408 281 \; pd dsp 1;
+#X msg 408 320 \; pd dsp 0;
+#X text 47 31 [soundtouch~] is a realtime pitch shifter \, based on
 Olli Parviainen's SoundTouch library. [soundtouch~] does pitch conversion
 within the range 0.25 - 2;
-#N canvas 0 22 331 127 about 0;
-#X text 13 21 [soundtouch~] for Pd written by Katja Vetter;
-#X text 14 54 based on Olli Parviainen's SoundTouch library;
-#X obj 15 37 pddp/pddplink www.katjaas.nl;
-#X obj 14 71 pddp/pddplink http://www.surina.net/soundtouch/;
-#X restore 380 173 pd about;
-#X text 24 499 [soundtouch~] for Pd operates on a signal stream and
+#N canvas 731 231 680 200 about 0;
+#X text 249 55 [soundtouch~] for Pd written by Katja Vetter;
+#X text 335 80 based on Olli Parviainen's SoundTouch library;
+#X msg 82 81 browse http://www.surina.net/soundtouch/;
+#X obj 68 120 pdcontrol;
+#X msg 68 55 browse http://www.katjaas.nl;
+#X connect 2 0 3 0;
+#X connect 4 0 3 0;
+#X restore 407 218 pd about;
+#X text 51 544 [soundtouch~] for Pd operates on a signal stream and
 can not perform time stretching all by itself. Open the patch below
 to see how time stretching is done with help of [soundtouch~]:;
-#X obj 381 210 loadbang;
+#X obj 408 255 loadbang;
 #N canvas 91 76 887 574 test&compare 0;
 #N canvas 361 48 427 572 G09.pitchshift.pd 0;
 #X floatatom 29 97 0 0 0 0 - - -;
@@ -391,11 +394,11 @@ well \, specially in the case of monophonic solo-instruments or voice.
 #X connect 15 0 22 0;
 #X connect 20 0 4 0;
 #X connect 21 0 20 1;
-#X restore 147 382 pd test&compare;
-#X text 24 334 Apply test signals and compare [soundtouch~] with Pd's
+#X restore 174 427 pd test&compare;
+#X text 51 379 Apply test signals and compare [soundtouch~] with Pd's
 built-in pitch shift example:;
-#X text 26 422 Check latency times for [soundtouch~]:;
-#X text 172 200 pitch factor 1 = original pitch;
+#X text 53 467 Check latency times for [soundtouch~]:;
+#X text 199 245 pitch factor 1 = original pitch;
 #N canvas 302 123 413 226 clicks-vs-latency 0;
 #X text 22 23 The SoundTouch C++ library offers a preprocessor definition
 to prevent clicks when changing pitch factor. It is called PREVENT_CLICK_AT_RATE_CROSSOVER
@@ -406,7 +409,7 @@ will double.;
 for the clicks rather than the increased latency. There is no way to
 avoid them both.;
 #X text 24 175 Katja.;
-#X restore 271 451 pd clicks-vs-latency;
+#X restore 298 496 pd clicks-vs-latency;
 #N canvas 448 25 490 550 test-latency 0;
 #N canvas 79 23 338 519 latency-meter 0;
 #X obj 26 113 table \$0-clicks 10000;
@@ -480,30 +483,33 @@ avoid them both.;
 #X restore 244 364 pd milliseconds;
 #X floatatom 244 391 5 0 0 0 - - -;
 #X obj 244 86 f;
-#N canvas 0 22 338 519 latency-meter 0;
-#X obj 194 167 t f f;
-#X floatatom 194 273 5 0 0 0 - - -;
-#X obj 194 248 max;
-#X msg 236 223 0;
+#N canvas 723 115 437 560 latency-meter 0;
+#X obj 194 217 t f f;
+#X floatatom 194 323 5 0 0 0 - - -;
+#X obj 194 298 max;
+#X msg 236 273 0;
 #X obj 194 116 t b b;
-#X obj 194 395 > 0;
-#X obj 194 447 f;
-#X obj 194 421 sel 1;
+#X obj 194 445 > 0;
+#X obj 194 497 f;
+#X obj 194 471 sel 1;
 #X obj 26 25 inlet~;
 #X obj 194 28 inlet;
 #X obj 194 84 delay 300;
-#X obj 194 478 outlet;
+#X obj 194 528 outlet;
 #X msg 25 160 arrayviewlistnew;
 #X obj 209 62 bng 15 250 50 0 empty empty empty 17 7 0 10 -262144 -1
 -1;
-#X obj 221 335 f;
-#X obj 194 306 t f b;
-#X obj 194 366 -;
+#X obj 221 385 f;
+#X obj 194 356 t f b;
+#X obj 194 416 -;
 #X obj 26 113 table \$0-clicks2 10000;
 #X obj 26 83 tabwrite~ \$0-clicks2;
 #X obj 25 190 s \$0-clicks2;
-#X obj 194 195 tabread \$0-clicks2;
-#X obj 194 141 for++ 0 10000;
+#X obj 194 245 tabread \$0-clicks2;
+#X obj 194 188 f;
+#X obj 222 195 + 1;
+#X obj 194 164 until;
+#X msg 194 141 10000;
 #X connect 0 0 20 0;
 #X connect 0 1 6 1;
 #X connect 1 0 2 1;
@@ -511,7 +517,8 @@ avoid them both.;
 #X connect 2 0 1 0;
 #X connect 3 0 2 1;
 #X connect 3 0 14 1;
-#X connect 4 0 21 0;
+#X connect 3 0 21 1;
+#X connect 4 0 24 0;
 #X connect 4 1 3 0;
 #X connect 5 0 7 0;
 #X connect 6 0 11 0;
@@ -528,7 +535,11 @@ avoid them both.;
 #X connect 15 1 14 0;
 #X connect 16 0 5 0;
 #X connect 20 0 2 0;
+#X connect 21 0 22 0;
 #X connect 21 0 0 0;
+#X connect 22 0 21 1;
+#X connect 23 0 21 0;
+#X connect 24 0 23 0;
 #X restore 34 304 pd latency-meter;
 #X obj 34 193 click~;
 #X obj 244 114 s \$0-pitch;
@@ -610,8 +621,8 @@ case where pitch shifting is not needed.;
 #X connect 36 0 0 0;
 #X connect 37 0 36 0;
 #X connect 38 0 36 0;
-#X restore 147 451 pd test-latency;
-#X text 19 37 [soundtouch~] takes two optional initialization arguments.
+#X restore 174 496 pd test-latency;
+#X text 46 82 [soundtouch~] takes two optional initialization arguments.
 The first argument is the processing grain size in milliseconds. For
 more details \, open [pd settings]. An optional second argument will
 set the number of channels (1 or 2). One channel is the default \,
