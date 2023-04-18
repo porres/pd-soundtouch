@@ -23,6 +23,9 @@ on:
         default: true
 
 jobs:  
+
+# ======================== Linux ========================
+
   linux-build:
     runs-on: ubuntu-20.04
     if: ${{ github.event.inputs.Linux == 'true' }}
@@ -58,6 +61,9 @@ jobs:
         with:
           name: soundtouch_Linux
           path: soundtouch_Linux
+
+
+# ======================== Windows ========================
 
   windows-build:
     runs-on: windows-latest
@@ -103,10 +109,11 @@ jobs:
         name: soundtouch_WIN64
         path: soundtouch_WIN64
 
+# ======================== Mac ========================
 
   macos-intel-build:
     runs-on: macos-latest
-    if: ${{ github.event.inputs.MacOS == 'true' }}
+    if: ${{ github.event.inputs.Mac == 'true' }}
     timeout-minutes: 10
 
     steps:
