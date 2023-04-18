@@ -1,23 +1,19 @@
-name: Deken Upload 
+name: Compile Objects
 on:
   workflow_dispatch:
     inputs:
-      ObjectVersion:
-        description: 'Add the version for upload'
-        type: string
-        required: true
       Windows:
-        description: 'Build and Upload Windows?'
+        description: 'Build for Windows?'
         type: boolean
         required: true
         default: true
       Linux:
-        description: 'Build and Upload Linux?'
+        description: 'Build for Linux?'
         type: boolean
         required: true
         default: true
       Mac:
-        description: 'Build and Upload Mac?'
+        description: 'Build for Mac?'
         type: boolean
         required: true
         default: true
