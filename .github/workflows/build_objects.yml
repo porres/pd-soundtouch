@@ -1,0 +1,138 @@
+name: Compile Objects
+on:
+  workflow_dispatch:
+    inputs:
+      Windows:
+        description: 'Build for Windows?'
+        type: boolean
+        required: true
+        default: true
+      Linux:
+        description: 'Build for Linux?'
+        type: boolean
+        required: true
+        default: true
+      Mac:
+        description: 'Build for Mac?'
+        type: boolean
+        required: true
+        default: true
+
+jobs:  
+
+# ======================== Linux ========================
+
+  linux-build:
+    runs-on: ubuntu-20.04
+    if: ${{ github.event.inputs.Linux == 'true' }}
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get install puredata -y
+          sudo apt install software-properties-common -y
+          sudo add-apt-repository ppa:deadsnakes/ppa -y
+          sudo apt-get update
+
+      - name: Build
+        run: make 
+      
+      - name: Copy files to soundtouch_Linux
+        run: |
+          mkdir soundtouch_Linux
+          cp soundtouch~.pd_linux soundtouch~-help.pd soundtouch_Linux
+          
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: soundtouch_Linux
+          path: soundtouch_Linux
+
+
+# ======================== Windows ========================
+
+  windows-build:
+    runs-on: windows-latest
+    if: ${{ github.event.inputs.Windows == 'true' }}
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - if: runner.os == 'Windows'
+      name: "Install mingw deps"
+      uses: msys2/setup-msys2@v2
+      with:
+          install: make autoconf automake libtool mingw-w64-x86_64-gcc libtool mingw-w64-x86_64-libwinpthread-git mingw-w64-x86_64-libsystre mingw-w64-x86_64-dlfcn 
+          update: false
+
+    - name: Configure Environment
+      run: |
+        mkdir soundtouch_WIN64
+        choco install puredata --yes
+    
+    - if: runner.os == 'Windows'
+      name: Build soundtouch~
+      shell: msys2 {0}
+      run: |
+        make 
+    
+    - name: Create Object Folder
+      run: |
+        mv soundtouch~.dll soundtouch~.m_amd64
+        cp soundtouch~.m_amd64 soundtouch_WIN64\
+        cp soundtouch~-help.pd soundtouch_WIN64\
+
+    - name: Upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: soundtouch_WIN64
+        path: soundtouch_WIN64
+
+# ======================== Mac ========================
+
+  macos-intel-build:
+    runs-on: macos-latest
+    if: ${{ github.event.inputs.Mac == 'true' }}
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: set Enviroment
+      run: |
+        brew install --cask pd
+        mkdir soundtouch_macOS-Intel
+
+    - name: Build
+      run: make 
+
+    - name: Create Object Folder
+      run: |
+        cp soundtouch~.pd_darwin soundtouch_macOS-Intel/soundtouch~.pd_darwin
+        cp soundtouch~-help.pd soundtouch_macOS-Intel/soundtouch~-help.pd
+
+    - name: Upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: soundtouch_macOS-Intel
+        path: soundtouch_macOS-Intel
