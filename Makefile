@@ -18,7 +18,14 @@ ${STDIR}/TDStretch.cpp \
 ${STDIR}/SoundTouch.cpp \
 src/soundtouch~.cpp
 
-cflags := -I ./resources/soundtouch/include/
+
+uname := $(shell uname -s)
+
+ifeq (Darwin,$(findstring Darwin,$(uname)))
+	cflags := -I ./resources/soundtouch/include/ -stdlib=libc++
+else
+	cflags := -I ./resources/soundtouch/include/
+endif
 
 
 datafiles = \
