@@ -22,7 +22,7 @@ src/soundtouch~.cpp
 uname := $(shell uname -s)
 
 ifeq (Darwin,$(findstring Darwin,$(uname)))
-	cflags := -I ./resources/soundtouch/include/ -stdlib=libc++
+	cflags := -I ./resources/soundtouch/include/ -stdlib=libc++ -mmacosx-version-min=10.7
 else
 	cflags := -I ./resources/soundtouch/include/
 endif
